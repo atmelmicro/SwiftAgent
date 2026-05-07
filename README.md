@@ -793,6 +793,10 @@ let response = try await session.withAuthorization(token: turnToken) {
 
 For quick prototypes you can still use `OpenAIConfiguration.direct(apiKey:)`, but remove it before release.
 
+If you need to point at an OpenAI-compatible endpoint (for example, a private gateway), pass a custom
+`baseURL` to `OpenAIConfiguration.direct(apiKey:baseURL:)` or the `OpenAISession` initializers that
+accept a `baseURL`.
+
 ## Simulated Session
 
 You can test and develop your agents without making API calls using the built-in simulation system. This is perfect for prototyping, testing, and developing UIs before integrating with live APIs.

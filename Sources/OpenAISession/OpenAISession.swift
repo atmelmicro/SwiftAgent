@@ -38,10 +38,12 @@ public final class OpenAISession<
   ///   - tools: Variadic list of tools available to the model.
   ///   - instructions: Default instructions applied to every turn.
   ///   - apiKey: OpenAI API key used for direct authentication.
+  ///   - baseURL: The root `URL` for the OpenAI-compatible endpoint.
   public init<each ToolType>(
     tools: repeat each ToolType,
     instructions: String = "",
     apiKey: String,
+    baseURL: URL = OpenAIConfiguration.defaultBaseURL,
   ) where
     SessionSchema == NoSchema,
     repeat (each ToolType): FoundationModels.Tool,
@@ -54,7 +56,7 @@ public final class OpenAISession<
       adapter = OpenAIAdapter(
         tools: wrappedTools,
         instructions: instructions,
-        configuration: .direct(apiKey: apiKey),
+        configuration: .direct(apiKey: apiKey, baseURL: baseURL),
       )
     }
 
@@ -64,16 +66,18 @@ public final class OpenAISession<
   ///   - schema: The schema that enumerates tools, structured outputs, and groundings.
   ///   - instructions: Default instructions applied to every turn.
   ///   - apiKey: OpenAI API key used for direct authentication.
+  ///   - baseURL: The root `URL` for the OpenAI-compatible endpoint.
   public init(
     schema: SessionSchema,
     instructions: String,
     apiKey: String,
+    baseURL: URL = OpenAIConfiguration.defaultBaseURL,
   ) {
     self.schema = schema
     adapter = OpenAIAdapter(
       tools: schema.tools,
       instructions: instructions,
-      configuration: .direct(apiKey: apiKey),
+      configuration: .direct(apiKey: apiKey, baseURL: baseURL),
     )
   }
 

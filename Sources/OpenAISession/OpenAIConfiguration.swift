@@ -5,6 +5,7 @@ import FoundationModels
 import SwiftAgent
 
 public struct OpenAIConfiguration: AdapterConfiguration {
+  public static let defaultBaseURL = URL(string: "https://api.openai.com")!
   var httpClient: HTTPClient
 
   public init(httpClient: HTTPClient) {
@@ -16,7 +17,12 @@ public struct OpenAIConfiguration: AdapterConfiguration {
   /// This is intended for prototyping only. Shipping an API key inside an app binary is
   /// insecure and should be avoided in production. Prefer ``proxy(through:)`` with
   /// short‑lived, backend‑issued tokens that are scoped to a single agent turn.
-  public static func direct(apiKey: String) -> OpenAIConfiguration {
+  ///
+  /// - Parameter baseURL: The root `URL` for the OpenAI-compatible endpoint.
+  public static func direct(
+    apiKey: String,
+    baseURL: URL = OpenAIConfiguration.defaultBaseURL,
+  ) -> OpenAIConfiguration {
     let encoder = JSONEncoder()
 
     // .sortedKeys is important to enable reliable cache hits!
@@ -36,7 +42,7 @@ public struct OpenAIConfiguration: AdapterConfiguration {
     )
 
     let config = HTTPClientConfiguration(
-      baseURL: URL(string: "https://api.openai.com")!,
+      baseURL: baseURL,
       defaultHeaders: [:],
       timeout: 60,
       jsonEncoder: encoder,

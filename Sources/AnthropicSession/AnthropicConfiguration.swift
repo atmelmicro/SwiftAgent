@@ -15,8 +15,11 @@ public struct AnthropicConfiguration: AdapterConfiguration {
   /// This is intended for prototyping only. Shipping an API key inside an app binary is
   /// insecure and should be avoided in production. Prefer ``proxy(through:)`` with
   /// short-lived, backend-issued tokens that are scoped to a single agent turn.
-  ///
-  /// - Parameter baseURL: The base URL for Anthropic's Messages API.
+  /// - Parameters:
+  ///   - apiKey: Anthropic API key used for direct authentication.
+  ///   - baseURL: The base URL for Anthropic's Messages API.
+  ///   - apiVersion: Anthropic API version header value.
+  ///   - betaHeaders: Optional beta header flags for Anthropic.
   public static func direct(
     apiKey: String,
     baseURL: URL = URL(string: "https://api.anthropic.com")!,

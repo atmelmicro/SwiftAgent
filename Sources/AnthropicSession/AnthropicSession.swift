@@ -1,6 +1,5 @@
 // By Dennis Müller
 
-import Foundation
 import FoundationModels
 import Observation
 import SwiftAgent

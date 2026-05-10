@@ -8,6 +8,7 @@ extension OpenAIConfiguration {
   static func recording(
     apiKey: String,
     recorder: HTTPReplayRecorder,
+    baseURL: URL = OpenAIConfiguration.defaultBaseURL,
   ) -> OpenAIConfiguration {
     let encoder = JSONEncoder()
     encoder.outputFormatting = .sortedKeys
@@ -25,7 +26,7 @@ extension OpenAIConfiguration {
     interceptors = interceptors.recording(to: recorder)
 
     let configuration = HTTPClientConfiguration(
-      baseURL: URL(string: "https://api.openai.com")!,
+      baseURL: baseURL,
       defaultHeaders: [:],
       timeout: 60,
       jsonEncoder: encoder,

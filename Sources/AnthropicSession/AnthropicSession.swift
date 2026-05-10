@@ -38,12 +38,14 @@ public final class AnthropicSession<
   ///   - tools: Variadic list of tools available to the model.
   ///   - instructions: Default instructions applied to every turn.
   ///   - apiKey: Anthropic API key used for direct authentication.
+  ///   - baseURL: Base URL for Anthropic's Messages API.
   ///   - apiVersion: Anthropic API version header value.
   ///   - betaHeaders: Optional beta header flags for Anthropic.
   public init<each ToolType>(
     tools: repeat each ToolType,
     instructions: String = "",
     apiKey: String,
+    baseURL: URL = URL(string: "https://api.anthropic.com")!,
     apiVersion: String = "2023-06-01",
     betaHeaders: [String]? = nil,
   ) where
@@ -60,6 +62,7 @@ public final class AnthropicSession<
       instructions: instructions,
       configuration: .direct(
         apiKey: apiKey,
+        baseURL: baseURL,
         apiVersion: apiVersion,
         betaHeaders: betaHeaders,
       ),
@@ -72,12 +75,14 @@ public final class AnthropicSession<
   ///   - schema: The schema that enumerates tools, structured outputs, and groundings.
   ///   - instructions: Default instructions applied to every turn.
   ///   - apiKey: Anthropic API key used for direct authentication.
+  ///   - baseURL: Base URL for Anthropic's Messages API.
   ///   - apiVersion: Anthropic API version header value.
   ///   - betaHeaders: Optional beta header flags for Anthropic.
   public init(
     schema: SessionSchema,
     instructions: String,
     apiKey: String,
+    baseURL: URL = URL(string: "https://api.anthropic.com")!,
     apiVersion: String = "2023-06-01",
     betaHeaders: [String]? = nil,
   ) {
@@ -87,6 +92,7 @@ public final class AnthropicSession<
       instructions: instructions,
       configuration: .direct(
         apiKey: apiKey,
+        baseURL: baseURL,
         apiVersion: apiVersion,
         betaHeaders: betaHeaders,
       ),

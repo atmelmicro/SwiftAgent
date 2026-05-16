@@ -71,7 +71,13 @@ public extension URLSessionHTTPClient {
 
           NetworkLog.request(request)
 
+          #if canImport(FoundationNetworking)
+          var asyncBytes: AsyncThrowingStream<UInt8, Error>
+          var response: URLResponse
+          (asyncBytes, response) = try await makeLinuxByteStream(for: request)
+          #else
           var (asyncBytes, response) = try await urlSession.bytes(for: request)
+          #endif
 
           if let httpResponse = response as? HTTPURLResponse,
              httpResponse.statusCode == 401,
@@ -95,7 +101,11 @@ public extension URLSessionHTTPClient {
               await onRequest(snapshot)
             }
             NetworkLog.request(request)
+            #if canImport(FoundationNetworking)
+            (asyncBytes, response) = try await makeLinuxByteStream(for: request)
+            #else
             (asyncBytes, response) = try await urlSession.bytes(for: request)
+            #endif
           }
 
           guard let httpResponse = response as? HTTPURLResponse else {
@@ -129,6 +139,66 @@ public extension URLSessionHTTPClient {
           NetworkLog.response(response, data: nil)
 
           let shouldRecordStreamBody = configuration.interceptors.onStreamResponse != nil
+          #if canImport(FoundationNetworking)
+          // On Linux, URLSession.AsyncBytes.events is unavailable, so always iterate
+          // byte-by-byte and feed into EventSource.Parser.
+          var collectedBytes = Data()
+          if shouldRecordStreamBody {
+            collectedBytes.reserveCapacity(32 * 1024)
+          }
+
+          let parser = EventSource.Parser()
+          let streamURL = httpResponse.url ?? url
+
+          func flushParsedEvents() async {
+            while let event = await parser.getNextEvent() {
+              continuation.yield(event)
+            }
+          }
+
+          func notifyStreamHookIfNeeded() async {
+            guard let onStreamResponse = configuration.interceptors.onStreamResponse else { return }
+            let responseHeaders = httpResponse.allHeaderFields.reduce(into: [String: String]()) { partialResult, pair in
+              let key = String(describing: pair.key)
+              let value = String(describing: pair.value)
+              partialResult[key] = value
+            }
+            let rawStreamString = String(decoding: collectedBytes, as: UTF8.self)
+            let snapshot = HTTPStreamResponseSnapshot(
+              requestID: requestID,
+              url: streamURL,
+              statusCode: httpResponse.statusCode,
+              headers: responseHeaders,
+              body: rawStreamString,
+              isRetry: isRetry,
+            )
+            await onStreamResponse(snapshot)
+          }
+
+          do {
+            for try await byte in asyncBytes {
+              try Task.checkCancellation()
+              if shouldRecordStreamBody { collectedBytes.append(byte) }
+              await parser.consume(byte)
+              if byte == 0x0A || byte == 0x0D {
+                await flushParsedEvents()
+              }
+            }
+            await parser.finish()
+            await flushParsedEvents()
+            if shouldRecordStreamBody { await notifyStreamHookIfNeeded() }
+          } catch is CancellationError {
+            await parser.finish()
+            await flushParsedEvents()
+            if shouldRecordStreamBody { await notifyStreamHookIfNeeded() }
+            throw CancellationError()
+          } catch {
+            await parser.finish()
+            await flushParsedEvents()
+            if shouldRecordStreamBody { await notifyStreamHookIfNeeded() }
+            throw error
+          }
+          #else
           if shouldRecordStreamBody {
             var collectedBytes = Data()
             collectedBytes.reserveCapacity(32 * 1024)
@@ -198,6 +268,7 @@ public extension URLSessionHTTPClient {
               continuation.yield(event)
             }
           }
+          #endif
 
           continuation.finish()
         } catch is CancellationError {
@@ -211,9 +282,9 @@ public extension URLSessionHTTPClient {
     }
   }
 
-  /// Collect up to `maxLength` bytes from an `URLSession.AsyncBytes` stream into `Data`.
+  /// Collect up to `maxLength` bytes from an async byte stream into `Data`.
   /// Consumes from the stream; intended for error logging where the stream will not be reused.
-  private func readPrefix(from bytes: URLSession.AsyncBytes, maxLength: Int) async throws -> Data {
+  private func readPrefix<S: AsyncSequence>(from bytes: S, maxLength: Int) async throws -> Data where S.Element == UInt8 {
     var collectedBytes = Data()
     collectedBytes.reserveCapacity(maxLength)
     var iterator = bytes.makeAsyncIterator()
@@ -224,6 +295,96 @@ public extension URLSessionHTTPClient {
     return collectedBytes
   }
 }
+
+// MARK: - Linux byte streaming
+
+#if canImport(FoundationNetworking)
+extension URLSessionHTTPClient {
+  /// Delegate-based streaming shim for Linux where `URLSession.AsyncBytes` is unavailable.
+  fileprivate func makeLinuxByteStream(
+    for request: URLRequest
+  ) async throws -> (AsyncThrowingStream<UInt8, Error>, URLResponse) {
+    // Coordinator holds shared mutable state accessed from the delegate (arbitrary thread)
+    // and from the async caller. `@unchecked Sendable` + NSLock keeps it safe.
+    final class Coordinator: @unchecked Sendable {
+      var streamCont: AsyncThrowingStream<UInt8, Error>.Continuation?
+      var responseCont: CheckedContinuation<URLResponse, Error>?
+      var responseResolved = false
+      let lock = NSLock()
+
+      func resolveResponse(_ r: URLResponse) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !responseResolved else { return }
+        responseResolved = true
+        responseCont?.resume(returning: r)
+      }
+
+      func failResponse(_ error: Error) {
+        lock.lock()
+        defer { lock.unlock() }
+        if !responseResolved {
+          responseResolved = true
+          responseCont?.resume(throwing: error)
+        }
+        streamCont?.finish(throwing: error)
+      }
+
+      func receiveData(_ data: Data) {
+        for byte in data { streamCont?.yield(byte) }
+      }
+
+      func finish() { streamCont?.finish() }
+    }
+
+    final class Delegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+      let coordinator: Coordinator
+      init(_ c: Coordinator) { coordinator = c }
+
+      func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+      ) {
+        coordinator.resolveResponse(response)
+        completionHandler(.allow)
+      }
+
+      func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        coordinator.receiveData(data)
+      }
+
+      func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error { coordinator.failResponse(error) }
+        else { coordinator.finish() }
+      }
+    }
+
+    let coordinator = Coordinator()
+
+    // AsyncThrowingStream's init closure runs synchronously, so coordinator.streamCont is
+    // guaranteed to be set before we reach withCheckedThrowingContinuation below.
+    let stream = AsyncThrowingStream<UInt8, Error>(bufferingPolicy: .unbounded) { cont in
+      coordinator.streamCont = cont
+    }
+
+    let response: URLResponse = try await withCheckedThrowingContinuation { cont in
+      coordinator.responseCont = cont
+      let delegate = Delegate(coordinator)
+      let session = URLSession(configuration: urlSession.configuration, delegate: delegate, delegateQueue: nil)
+      let task = session.dataTask(with: request)
+      task.resume()
+      coordinator.streamCont?.onTermination = { @Sendable _ in
+        task.cancel()
+        session.invalidateAndCancel()
+      }
+    }
+
+    return (stream, response)
+  }
+}
+#endif
 
 /// Errors that can occur while working with Server-Sent Events streams.
 public enum SSEError: Error, LocalizedError, Sendable {

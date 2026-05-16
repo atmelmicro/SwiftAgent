@@ -4,7 +4,9 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
+#if canImport(OSLog)
 import OSLog
+#endif
 
 /// Network-specific logging for HTTP requests and responses.
 ///
@@ -15,7 +17,9 @@ public enum NetworkLog {
   public nonisolated(unsafe) static var isEnabled: Bool = false
 
   /// Internal logger for network requests
+  #if canImport(OSLog)
   private static let logger = Logger(subsystem: "SwiftAgent", category: "Network")
+  #endif
 
   /// Logs an outgoing HTTP request with all details.
   static func request(_ request: URLRequest) {
@@ -26,7 +30,7 @@ public enum NetworkLog {
     let headers = formatHeaders(request.allHTTPHeaderFields)
     let body = formatBody(request.httpBody)
 
-    logger.info(
+    log(
       """
       🌐 HTTP Request
       ↗️ \(method) \(url)
@@ -42,7 +46,7 @@ public enum NetworkLog {
   static func response(_ response: URLResponse, data: Data?) {
     guard isEnabled else { return }
     guard let httpResponse = response as? HTTPURLResponse else {
-      logger.info("🌐 HTTP Response: Invalid response type")
+      log("🌐 HTTP Response: Invalid response type")
       return
     }
 
@@ -53,7 +57,7 @@ public enum NetworkLog {
 
     let statusEmoji = statusCode >= 200 && statusCode < 300 ? "✅" : "❌"
 
-    logger.info(
+    log(
       """
       🌐 HTTP Response \(statusEmoji)
       ↙️ \(statusCode) \(url)
@@ -66,6 +70,14 @@ public enum NetworkLog {
   }
 
   // MARK: - Private Helpers
+
+  private static func log(_ message: String) {
+    #if canImport(OSLog)
+    logger.info("\(message, privacy: .public)")
+    #else
+    print(message)
+    #endif
+  }
 
   private static func formatHeaders(_ headers: [String: String]?) -> String {
     guard let headers, !headers.isEmpty else {

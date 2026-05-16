@@ -1,7 +1,9 @@
 // By Dennis Müller
 
 import Foundation
+#if canImport(OSLog)
 import OSLog
+#endif
 
 /// ``SwiftAgentConfiguration`` is an enumeration providing static methods for configuring
 /// global behaviors of the SwiftAgent SDK, such as enabling or disabling logging features.
@@ -13,11 +15,13 @@ public enum SwiftAgentConfiguration {
   /// Enables or disables logging for the SDK.
   /// - Parameter enabled: Pass `true` to enable logging, `false` to disable.
   @MainActor public static func setLoggingEnabled(_ enabled: Bool) {
+    #if canImport(OSLog)
     if enabled {
       Logger.main = Logger(subsystem: "SwiftAgent", category: "SDK")
     } else {
       Logger.main = Logger(OSLog.disabled)
     }
+    #endif
   }
 
   /// Enables or disables network request/response logging.

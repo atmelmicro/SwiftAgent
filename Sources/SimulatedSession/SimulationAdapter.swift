@@ -2,7 +2,9 @@
 
 import Foundation
 import FoundationModels
+#if canImport(OSLog)
 import OSLog
+#endif
 import SwiftAgent
 
 public actor SimulationAdapter: Adapter {

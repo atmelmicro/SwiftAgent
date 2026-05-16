@@ -3,7 +3,9 @@
 import Foundation
 import FoundationModels
 import OpenAI
+#if canImport(OSLog)
 import OSLog
+#endif
 import SwiftAgent
 
 public actor OpenAIAdapter: Adapter {

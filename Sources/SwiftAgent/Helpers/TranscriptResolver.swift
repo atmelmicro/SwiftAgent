@@ -2,7 +2,9 @@
 
 import Foundation
 import FoundationModels
+#if canImport(OSLog)
 import OSLog
+#endif
 
 /// Resolves raw transcript entries into your app's domain types.
 ///

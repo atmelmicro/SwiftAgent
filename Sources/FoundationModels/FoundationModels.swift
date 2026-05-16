@@ -3,7 +3,7 @@
 import Foundation
 
 @attached(member, names: named(PartiallyGenerated), named(generationSchema))
-@attached(extension, conformances: Generable, Codable, Sendable)
+@attached(extension, conformances: Generable, Codable, Sendable, names: named(init))
 public macro Generable() = #externalMacro(
   module: "SwiftAgentMacros",
   type: "GenerableMacro",
@@ -332,6 +332,15 @@ extension GeneratedContent: ConvertibleToGeneratedContent {
   public var generatedContent: GeneratedContent { self }
 }
 
+extension GeneratedContent {
+  /// Decodes the content as the given `Decodable` type using `JSONDecoder`.
+  /// Used by `@Generable`-generated `init(_ content:)` implementations.
+  public func decode<T: Decodable>(_ type: T.Type) throws -> T {
+    let data = try jsonData()
+    return try JSONDecoder().decode(type, from: data)
+  }
+}
+
 public enum GeneratedContentError: Error, Sendable {
   case invalidUTF8
   case invalidJSONObject
@@ -347,37 +356,60 @@ public indirect enum GenerationSchema: Sendable, Equatable, Codable {
   case boolean
   case null
   case any
+  /// Wraps another schema with a human-readable description, surfaced to LLMs as the `description` field.
+  case withDescription(String, GenerationSchema)
 }
 
 extension GenerationSchema {
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: SchemaCodingKeys.self)
     let type = try container.decode(String.self, forKey: .type)
+    let description = try container.decodeIfPresent(String.self, forKey: .description)
+
+    let base: GenerationSchema
     switch type {
     case "object":
       let properties = try container.decodeIfPresent([String: GenerationSchema].self, forKey: .properties) ?? [:]
       let required = try container.decodeIfPresent([String].self, forKey: .required) ?? []
-      self = .object(properties: properties, required: required)
+      base = .object(properties: properties, required: required)
     case "array":
-      self = .array(try container.decode(GenerationSchema.self, forKey: .items))
+      base = .array(try container.decode(GenerationSchema.self, forKey: .items))
     case "string":
-      self = .string
+      base = .string
     case "integer":
-      self = .integer
+      base = .integer
     case "number":
-      self = .number
+      base = .number
     case "boolean":
-      self = .boolean
+      base = .boolean
     case "null":
-      self = .null
+      base = .null
     default:
-      self = .any
+      base = .any
     }
+
+    self = description.map { .withDescription($0, base) } ?? base
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: SchemaCodingKeys.self)
-    switch self {
+
+    // Unwrap description wrapper so we can encode type + description together.
+    let description: String?
+    let schema: GenerationSchema
+    if case let .withDescription(desc, inner) = self {
+      description = desc
+      schema = inner
+    } else {
+      description = nil
+      schema = self
+    }
+
+    if let description {
+      try container.encode(description, forKey: .description)
+    }
+
+    switch schema {
     case let .object(properties, required):
       try container.encode("object", forKey: .type)
       try container.encode("Arguments", forKey: .title)
@@ -400,12 +432,52 @@ extension GenerationSchema {
       try container.encode("null", forKey: .type)
     case .any:
       try container.encode([String](), forKey: .anyOf)
+    case .withDescription:
+      // Nested withDescription is not expected; encode as null to avoid infinite recursion.
+      try container.encode("null", forKey: .type)
+    }
+  }
+
+  /// Coerces mismatched JSON primitive types so that LLM responses that send `false` for an
+  /// integer field (a common mistake) can still be decoded without a type-mismatch error.
+  public func coerce(_ content: GeneratedContent) -> GeneratedContent {
+    switch self {
+    case .withDescription(_, let inner):
+      return inner.coerce(content)
+
+    case .integer:
+      switch content.kind {
+      case .bool(let b): return GeneratedContent(kind: .number(b ? 1.0 : 0.0))
+      default: return content
+      }
+
+    case .number:
+      switch content.kind {
+      case .bool(let b): return GeneratedContent(kind: .number(b ? 1.0 : 0.0))
+      default: return content
+      }
+
+    case .object(let properties, _):
+      guard !properties.isEmpty, case .object(let values) = content.kind else { return content }
+      var coerced: [String: GeneratedContent] = [:]
+      for (key, value) in values {
+        if let propSchema = properties[key] {
+          coerced[key] = propSchema.coerce(value)
+        } else {
+          coerced[key] = value
+        }
+      }
+      return GeneratedContent(kind: .object(coerced))
+
+    default:
+      return content
     }
   }
 
   private enum SchemaCodingKeys: String, CodingKey {
     case additionalProperties
     case anyOf
+    case description
     case items
     case order = "x-order"
     case properties

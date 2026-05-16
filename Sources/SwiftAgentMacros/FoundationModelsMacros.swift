@@ -36,7 +36,7 @@ public struct GenerableMacro: MemberMacro, ExtensionMacro {
       .map { "\($0.name): \($0.type)? = nil" }
       .joined(separator: ", ")
     let schemaEntries = properties
-      .map { #""\#($0.name)": \#(schemaExpression(for: $0.type))"# }
+      .map { #""\#($0.name)": \#(schemaExpression(for: $0.type, guideDescription: $0.guideDescription))"# }
       .joined(separator: ", ")
     let required = properties
       .filter { !isOptionalType($0.type) }
@@ -72,13 +72,21 @@ public struct GenerableMacro: MemberMacro, ExtensionMacro {
     conformingTo protocols: [TypeSyntax],
     in context: some MacroExpansionContext,
   ) throws -> [ExtensionDeclSyntax] {
+    // The custom init goes in an extension so it does not suppress the memberwise initializer.
     [
-      try ExtensionDeclSyntax("extension \(type.trimmed): FoundationModels.Generable, Swift.Codable, Swift.Sendable {}"),
+      try ExtensionDeclSyntax("""
+      extension \(type.trimmed): FoundationModels.Generable, Swift.Codable, Swift.Sendable {
+        public init(_ content: FoundationModels.GeneratedContent) throws {
+          let coerced = Self.generationSchema.coerce(content)
+          self = try coerced.decode(Self.self)
+        }
+      }
+      """),
     ]
   }
 }
 
-private func storedProperties(in declaration: some DeclGroupSyntax) -> [(name: String, type: String)] {
+private func storedProperties(in declaration: some DeclGroupSyntax) -> [(name: String, type: String, guideDescription: String?)] {
   declaration.memberBlock.members.compactMap { member in
     guard let variable = member.decl.as(VariableDeclSyntax.self),
           variable.bindingSpecifier.tokenKind == .keyword(.var) ||
@@ -91,33 +99,54 @@ private func storedProperties(in declaration: some DeclGroupSyntax) -> [(name: S
       return nil
     }
 
-    return (identifier.identifier.text, type.trimmedDescription)
+    // Extract the string literal from the first @Guide(description:) attribute, if present.
+    let guideDescription = variable.attributes.lazy.compactMap { attr -> String? in
+      guard let attribute = attr.as(AttributeSyntax.self),
+            attribute.attributeName.trimmedDescription == "Guide",
+            let args = attribute.arguments?.as(LabeledExprListSyntax.self),
+            let descArg = args.first(where: { $0.label?.text == "description" }),
+            let stringLiteral = descArg.expression.as(StringLiteralExprSyntax.self) else {
+        return nil
+      }
+      // Return the trimmed description so it can be pasted verbatim into generated code.
+      return stringLiteral.trimmedDescription
+    }.first
+
+    return (identifier.identifier.text, type.trimmedDescription, guideDescription)
   }
 }
 
-private func schemaExpression(for type: String) -> String {
+private func schemaExpression(for type: String, guideDescription: String? = nil) -> String {
   let type = type.trimmingCharacters(in: .whitespacesAndNewlines)
   if isOptionalType(type), let wrappedType = optionalWrappedType(type) {
-    return schemaExpression(for: wrappedType)
+    return schemaExpression(for: wrappedType, guideDescription: guideDescription)
   }
+
+  let base: String
   switch type {
   case "String":
-    return ".string"
+    base = ".string"
   case "Int":
-    return ".integer"
+    base = ".integer"
   case "Double", "Float", "Decimal":
-    return ".number"
+    base = ".number"
   case "Bool":
-    return ".boolean"
+    base = ".boolean"
   default:
     if type.hasPrefix("[") || type.hasPrefix("Array<") {
-      return ".array(.any)"
+      base = ".array(.any)"
+    } else if type == "GeneratedContent" || type == "FoundationModels.GeneratedContent" {
+      base = ".any"
+    } else {
+      // Custom types carry their own schema; descriptions are not applied here.
+      return "\(type).generationSchema"
     }
-    if type == "GeneratedContent" || type == "FoundationModels.GeneratedContent" {
-      return ".any"
-    }
-    return "\(type).generationSchema"
   }
+
+  if let guideDescription {
+    return ".withDescription(\(guideDescription), \(base))"
+  }
+  return base
 }
 
 private func isOptionalType(_ type: String) -> Bool {

@@ -1,6 +1,9 @@
 // By Dennis Müller
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 #if canImport(LinkPresentation)
 import LinkPresentation
 #endif
@@ -67,10 +70,11 @@ package final class URLMetadataProvider {
 
   /// Extracts URLs from a text string
   package static func extractURLs(from text: String) -> [URL] {
+    #if canImport(Darwin)
     let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     let matches = detector?.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
 
-    return matches?.compactMap { match in
+    return matches?.compactMap { match -> URL? in
       guard let range = Range(match.range, in: text),
             let url = URL(string: String(text[range])) else {
         return nil
@@ -78,6 +82,9 @@ package final class URLMetadataProvider {
 
       return url
     } ?? []
+    #else
+    return []
+    #endif
   }
 
   // MARK: - Linux fallback
@@ -86,8 +93,7 @@ package final class URLMetadataProvider {
   /// Fetches URL metadata on platforms without LinkPresentation by following redirects
   /// and extracting the HTML <title> tag via URLSession.
   private func fetchMetadataFallback(for url: URL) async throws -> URLMetadata {
-    let session = URLSession(configuration: .default)
-    let (data, response) = try await session.data(from: url)
+    let (data, response) = try await URLSession.shared.data(from: url)
     let finalURL = (response as? HTTPURLResponse).flatMap { _ in response.url } ?? url
     let title = Self.extractTitle(from: data)
     return URLMetadata(originalURL: url, url: finalURL, title: title)

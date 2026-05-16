@@ -31,34 +31,34 @@ package enum AgentLog {
   package static func start(model: String, toolNames: [String], promptPreview: String?) {
     let tools = toolNames.isEmpty ? "-" : toolNames.joined(separator: ", ")
     let preview = promptPreview.map { "\($0.prefix(180))" } ?? "-"
-    log("info", "🟢 \(String(localized: "Agent start")) — model=\(model) | tools=\(tools) | prompt=\(preview)")
+    log("info", "🟢 Agent start — model=\(model) | tools=\(tools) | prompt=\(preview)")
   }
 
   /// Logs that the provider is requesting the next response step.
   package static func stepRequest(step: Int) {
-    log("debug", "↗️ \(String(localized: "Request step")) #\(step)")
+    log("debug", "↗️ Request step #\(step)")
   }
 
   /// Logs a plain message output from the model.
   package static func outputMessage(text: String, status: String) {
     let preview = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    log("info", "💬 \(String(localized: "Output")) — status=\(status)\n\(preview)")
+    log("info", "💬 Output — status=\(status)\n\(preview)")
   }
 
   /// Logs a structured (JSON) output from the model.
   package static func outputStructured(json: String, status: String) {
-    log("info", "📦 \(String(localized: "Structured output")) — status=\(status)\n\(pretty(json: json))")
+    log("info", "📦 Structured output — status=\(status)\n\(pretty(json: json))")
   }
 
   /// Logs that a tool call was requested by the model.
   package static func toolCall(name: String, callId: String, argumentsJSON: String) {
-    log("info", "🛠️ \(String(localized: "Tool call")) — \(name) [\(callId)]\nargs:\n\(pretty(json: argumentsJSON))")
+    log("info", "🛠️ Tool call — \(name) [\(callId)]\nargs:\n\(pretty(json: argumentsJSON))")
   }
 
   /// Logs tool output after the tool completed successfully.
   package static func toolOutput(name: String, callId: String, outputJSONOrText: String) {
     let body = pretty(json: outputJSONOrText)
-    log("info", "📤 \(String(localized: "Tool output")) — \(name) [\(callId)]\n\(body)")
+    log("info", "📤 Tool output — \(name) [\(callId)]\n\(body)")
   }
 
   /// Logs a reasoning summary if available.
@@ -66,12 +66,12 @@ package enum AgentLog {
     guard !summary.isEmpty else { return }
 
     let joined = summary.joined(separator: "\n• ")
-    log("debug", "🧠 \(String(localized: "Reasoning"))\n• \(joined)")
+    log("debug", "🧠 Reasoning\n• \(joined)")
   }
 
   /// Logs that the run finished.
   package static func finish() {
-    log("info", "✅ \(String(localized: "Finished"))")
+    log("info", "✅ Finished")
   }
 
   /// Logs token usage accounting.
@@ -88,14 +88,14 @@ package enum AgentLog {
     let cached = cachedTokens.map(String.init) ?? "-"
     let reasoning = reasoningTokens.map(String.init) ?? "-"
 
-    log("info", "🧮 \(String(localized: "Token usage")) — input=\(input) | output=\(output) | total=\(total) | cached=\(cached) | reasoning=\(reasoning)")
+    log("info", "🧮 Token usage — input=\(input) | output=\(output) | total=\(total) | cached=\(cached) | reasoning=\(reasoning)")
   }
 
   /// Logs an error during the run.
   package static func error(_ error: any Error, context: String? = nil) {
     let ctx = context ?? "-"
     let errorMessage = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
-    log("error", "⛔️ \(String(localized: "Error")) — \(ctx): \(errorMessage)")
+    log("error", "⛔️ Error — \(ctx): \(errorMessage)")
   }
 
   // MARK: - General Logging

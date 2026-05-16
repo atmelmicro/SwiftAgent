@@ -2,6 +2,9 @@
 
 import EventSource
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public extension URLSessionHTTPClient {
   // MARK: - Public API (provider-agnostic)

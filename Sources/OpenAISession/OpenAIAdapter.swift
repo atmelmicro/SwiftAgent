@@ -8,7 +8,9 @@ import SwiftAgent
 
 public actor OpenAIAdapter: Adapter {
   public typealias Model = OpenAIModel
+  public typealias GenerationOptions = OpenAIGenerationOptions
   public typealias Transcript = SwiftAgent.Transcript
+  public typealias Configuration = OpenAIConfiguration
   public typealias ConfigurationError = OpenAIGenerationOptionsError
 
   public nonisolated let tools: [any SwiftAgentTool]

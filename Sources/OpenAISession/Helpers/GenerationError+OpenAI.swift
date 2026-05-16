@@ -1,6 +1,9 @@
 // By Dennis Müller
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import OpenAI
 import SwiftAgent
 

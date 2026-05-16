@@ -1,6 +1,9 @@
 // By Dennis Müller
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 package extension GenerationError {
   /// Maps a generic `HTTPError` produced by the networking layer to a `GenerationError`.

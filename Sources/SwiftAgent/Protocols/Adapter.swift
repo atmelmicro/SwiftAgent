@@ -11,8 +11,6 @@ public protocol Adapter: Actor {
 
   nonisolated var tools: [any SwiftAgentTool] { get }
 
-  init(tools: [any SwiftAgentTool], instructions: String, configuration: Configuration)
-
   func respond(
     to prompt: Transcript.Prompt,
     generating type: (some StructuredOutput).Type?,

@@ -11,6 +11,7 @@ let package = Package(
   products: [
     .library(name: "OpenAISession", targets: ["OpenAISession", "SimulatedSession", "SwiftAgent"]),
     .library(name: "AnthropicSession", targets: ["AnthropicSession", "SimulatedSession", "SwiftAgent"]),
+    .library(name: "FoundationModels", targets: ["FoundationModels"]),
     .library(name: "ExampleCode", targets: ["ExampleCode"]),
   ],
   dependencies: [
@@ -32,8 +33,15 @@ let package = Package(
       ],
     ),
     .target(
+      name: "FoundationModels",
+      dependencies: [
+        "SwiftAgentMacros",
+      ],
+    ),
+    .target(
       name: "SwiftAgent",
       dependencies: [
+        "FoundationModels",
         "SwiftAgentMacros",
         "EventSource",
       ],
@@ -41,6 +49,7 @@ let package = Package(
     .target(
       name: "OpenAISession",
       dependencies: [
+        "FoundationModels",
         "SwiftAgent",
         "OpenAI",
         "SwiftAgentMacros",
@@ -50,6 +59,7 @@ let package = Package(
     .target(
       name: "AnthropicSession",
       dependencies: [
+        "FoundationModels",
         "SwiftAgent",
         "SwiftAnthropic",
         "SwiftAgentMacros",
@@ -59,6 +69,7 @@ let package = Package(
     .target(
       name: "SimulatedSession",
       dependencies: [
+        "FoundationModels",
         "SwiftAgent",
         "OpenAI",
       ],

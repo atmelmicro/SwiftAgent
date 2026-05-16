@@ -2,7 +2,6 @@
 
 import Foundation
 import FoundationModels
-import OpenAI
 #if canImport(OSLog)
 import OSLog
 #endif

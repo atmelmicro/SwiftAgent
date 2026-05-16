@@ -194,7 +194,7 @@ public actor OpenAIAdapter: Adapter {
         continuation: continuation,
       )
     default:
-      Logger.main.warning("Unsupported output received: \(String(describing: output), privacy: .public)")
+      AgentLog.warning("Unsupported output received: \(String(describing: output))")
     }
   }
 

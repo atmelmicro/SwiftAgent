@@ -1,9 +1,9 @@
 // By Dennis Müller
 
+import Foundation
 import FoundationModels
 import Observation
 import SwiftAgent
-import SwiftUI
 
 /// High-level client for working with OpenAI's Responses API using SwiftAgent.
 ///

@@ -1,7 +1,9 @@
 // By Dennis Müller
 
 import Foundation
+#if canImport(LinkPresentation)
 import LinkPresentation
+#endif
 
 /// Utility for fetching metadata from URLs using LPMetadataProvider
 @MainActor
@@ -26,6 +28,7 @@ package final class URLMetadataProvider {
 
   /// Fetches metadata for a single URL
   package func fetchMetadata(for url: URL) async throws -> URLMetadata {
+    #if canImport(LinkPresentation)
     let provider = LPMetadataProvider()
     let metadata = try await provider.startFetchingMetadata(for: url)
     return URLMetadata(
@@ -33,6 +36,9 @@ package final class URLMetadataProvider {
       url: metadata.originalURL ?? url,
       title: metadata.title,
     )
+    #else
+    return try await fetchMetadataFallback(for: url)
+    #endif
   }
 
   /// Fetches metadata for multiple URLs concurrently
@@ -73,4 +79,41 @@ package final class URLMetadataProvider {
       return url
     } ?? []
   }
+
+  // MARK: - Linux fallback
+
+  #if !canImport(LinkPresentation)
+  /// Fetches URL metadata on platforms without LinkPresentation by following redirects
+  /// and extracting the HTML <title> tag via URLSession.
+  private func fetchMetadataFallback(for url: URL) async throws -> URLMetadata {
+    let session = URLSession(configuration: .default)
+    let (data, response) = try await session.data(from: url)
+    let finalURL = (response as? HTTPURLResponse).flatMap { _ in response.url } ?? url
+    let title = Self.extractTitle(from: data)
+    return URLMetadata(originalURL: url, url: finalURL, title: title)
+  }
+
+  private static func extractTitle(from data: Data) -> String? {
+    guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
+      return nil
+    }
+    // Match <title>...</title> case-insensitively
+    guard let range = html.range(of: #"(?i)<title[^>]*>(.*?)</title>"#, options: .regularExpression) else {
+      return nil
+    }
+    let match = String(html[range])
+    // Strip the tags to get the inner text
+    guard let inner = match.range(of: #"(?i)(?<=<title[^>]{0,256}>).*?(?=</title>)"#, options: .regularExpression) else {
+      return nil
+    }
+    let title = String(match[inner])
+      .replacingOccurrences(of: "&amp;", with: "&")
+      .replacingOccurrences(of: "&lt;", with: "<")
+      .replacingOccurrences(of: "&gt;", with: ">")
+      .replacingOccurrences(of: "&quot;", with: "\"")
+      .replacingOccurrences(of: "&#39;", with: "'")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    return title.isEmpty ? nil : title
+  }
+  #endif
 }

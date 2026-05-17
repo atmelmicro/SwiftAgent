@@ -8,6 +8,7 @@ import Testing
 @SessionSchema
 private struct ToolSchemaSession {
   @Tool var forecast = ForecastTool()
+  @Tool var batch = BatchTool()
 }
 
 @Suite("DecodableTool JSON schema")
@@ -57,6 +58,17 @@ struct DecodableToolJSONSchemaTests {
     #expect(compactSchema.contains("\n") == false)
     #expect(prettySchema.contains("\n"))
   }
+
+  @Test("Encodes array item schemas")
+  func encodesArrayItemSchemas() throws {
+    let tool = try #require(session.tools.first { $0.name == "batch_items" })
+
+    let schema = tool.jsonSchema()
+
+    #expect(schema.contains(#""items":{"additionalProperties":false,"properties":{"id":{"type":"string"},"matched":{"type":"boolean"}}"#))
+    #expect(schema.contains(#""verdicts":{"items":"#))
+    #expect(schema.contains(#""type":"array""#))
+  }
 }
 
 // MARK: - Tool Fixtures
@@ -75,5 +87,27 @@ private struct ForecastTool: FoundationModels.Tool {
 
   func call(arguments: Arguments) async throws -> String {
     "Forecast"
+  }
+}
+
+private struct BatchTool: FoundationModels.Tool {
+  static let description: String = "Return batch item verdicts."
+
+  var name: String = "batch_items"
+  var description: String { Self.description }
+
+  @Generable
+  struct Item {
+    var id: String
+    var matched: Bool
+  }
+
+  @Generable
+  struct Arguments {
+    var verdicts: [Item]
+  }
+
+  func call(arguments: Arguments) async throws -> String {
+    "Batch"
   }
 }

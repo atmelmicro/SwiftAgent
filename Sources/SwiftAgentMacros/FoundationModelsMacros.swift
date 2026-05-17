@@ -133,8 +133,8 @@ private func schemaExpression(for type: String, guideDescription: String? = nil)
   case "Bool":
     base = ".boolean"
   default:
-    if type.hasPrefix("[") || type.hasPrefix("Array<") {
-      base = ".array(.any)"
+    if let elementType = arrayElementType(type) {
+      base = ".array(\(schemaExpression(for: elementType)))"
     } else if type == "GeneratedContent" || type == "FoundationModels.GeneratedContent" {
       base = ".any"
     } else {
@@ -160,6 +160,17 @@ private func optionalWrappedType(_ type: String) -> String? {
   }
   if type.hasPrefix("Optional<"), type.hasSuffix(">") {
     return String(type.dropFirst("Optional<".count).dropLast())
+  }
+  return nil
+}
+
+private func arrayElementType(_ type: String) -> String? {
+  let type = type.trimmingCharacters(in: .whitespacesAndNewlines)
+  if type.hasPrefix("["), type.hasSuffix("]") {
+    return String(type.dropFirst().dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+  if type.hasPrefix("Array<"), type.hasSuffix(">") {
+    return String(type.dropFirst("Array<".count).dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
   }
   return nil
 }

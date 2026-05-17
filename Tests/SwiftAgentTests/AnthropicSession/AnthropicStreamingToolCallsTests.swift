@@ -19,12 +19,12 @@ struct AnthropicStreamingToolCallsTests {
   // MARK: - Properties
 
   private let session: AnthropicSession<SessionSchema>
-  private let mockHTTPClient: ReplayHTTPClient<MessageParameter>
+  private let mockHTTPClient: ReplayHTTPClient<AnthropicMessageRequest>
 
   // MARK: - Initialization
 
   init() async {
-    mockHTTPClient = ReplayHTTPClient<MessageParameter>(
+    mockHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(
       recordedResponses: [
         .init(body: toolCallResponse),
         .init(body: finalResponse),

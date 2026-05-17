@@ -19,12 +19,12 @@ struct AnthropicStructuredOutputTests {
   // MARK: - Properties
 
   private let session: AnthropicSession<SessionSchema>
-  private let mockHTTPClient: ReplayHTTPClient<MessageParameter>
+  private let mockHTTPClient: ReplayHTTPClient<AnthropicMessageRequest>
 
   // MARK: - Initialization
 
   init() async {
-    mockHTTPClient = ReplayHTTPClient<MessageParameter>(
+    mockHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(
       recordedResponse: .init(body: structuredOutputResponse),
       makeJSONDecoder: {
         let decoder = JSONDecoder()
@@ -110,7 +110,7 @@ struct AnthropicStructuredOutputTests {
   }
 
   private func requestJSON(
-    from request: MessageParameter,
+    from request: AnthropicMessageRequest,
   ) throws -> [String: Any] {
     let encoder = JSONEncoder()
     encoder.keyEncodingStrategy = .convertToSnakeCase

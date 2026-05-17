@@ -14,7 +14,7 @@ private struct SessionSchema {}
 struct AnthropicHTTPErrorMappingTests {
   @Test("401 responses are mapped to providerError with statusCode + type")
   func authenticationErrorMapping() async throws {
-    let mockHTTPClient = ReplayHTTPClient<MessageParameter>(
+    let mockHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(
       recordedResponse: .init(body: authenticationErrorResponse, statusCode: 401),
     )
     let configuration = AnthropicConfiguration(httpClient: mockHTTPClient)
@@ -50,7 +50,7 @@ struct AnthropicHTTPErrorMappingTests {
 
   @Test("429 responses are mapped to providerError with statusCode + type")
   func rateLimitErrorMapping() async throws {
-    let mockHTTPClient = ReplayHTTPClient<MessageParameter>(
+    let mockHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(
       recordedResponse: .init(body: rateLimitErrorResponse, statusCode: 429),
     )
     let configuration = AnthropicConfiguration(httpClient: mockHTTPClient)

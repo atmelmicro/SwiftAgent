@@ -33,7 +33,7 @@ public struct AnthropicGenerationOptions: AdapterGenerationOptions {
   public var toolChoice: MessageParameter.ToolChoice?
 
   /// Extended thinking configuration.
-  public var thinking: MessageParameter.Thinking?
+  public var thinking: AnthropicThinking?
 
   /// Minimum time between emitted streaming snapshots.
   public var minimumStreamingSnapshotInterval: Duration?
@@ -47,7 +47,7 @@ public struct AnthropicGenerationOptions: AdapterGenerationOptions {
     topP: Double? = nil,
     topK: Int? = nil,
     toolChoice: MessageParameter.ToolChoice? = nil,
-    thinking: MessageParameter.Thinking? = nil,
+    thinking: AnthropicThinking? = nil,
     minimumStreamingSnapshotInterval: Duration? = nil,
   ) {
     self.maxOutputTokens = maxOutputTokens
@@ -65,7 +65,7 @@ public struct AnthropicGenerationOptions: AdapterGenerationOptions {
       throw GenerationOptionsError.missingMaxTokens
     }
 
-    if thinking != nil {
+    if thinking?.type == .enabled {
       let minimumThinkingBudgetTokens = 1024
 
       if temperature != nil {
@@ -86,18 +86,19 @@ public struct AnthropicGenerationOptions: AdapterGenerationOptions {
         throw GenerationOptionsError.thinkingIncompatibleWithToolChoice(toolChoiceType)
       }
 
-      if let thinking,
-         let budgetTokens = AnthropicGenerationOptions.thinkingBudgetTokens(from: thinking) {
-        if budgetTokens < minimumThinkingBudgetTokens {
-          throw GenerationOptionsError.invalidThinkingBudget(budgetTokens)
-        }
+      guard let budgetTokens = thinking?.budgetTokens else {
+        throw GenerationOptionsError.invalidThinkingBudget(0)
+      }
 
-        if maxOutputTokens <= budgetTokens {
-          throw GenerationOptionsError.thinkingBudgetExceedsMaxOutputTokens(
-            budgetTokens: budgetTokens,
-            maxOutputTokens: maxOutputTokens,
-          )
-        }
+      if budgetTokens < minimumThinkingBudgetTokens {
+        throw GenerationOptionsError.invalidThinkingBudget(budgetTokens)
+      }
+
+      if maxOutputTokens <= budgetTokens {
+        throw GenerationOptionsError.thinkingBudgetExceedsMaxOutputTokens(
+          budgetTokens: budgetTokens,
+          maxOutputTokens: maxOutputTokens,
+        )
       }
     }
 
@@ -116,19 +117,6 @@ public struct AnthropicGenerationOptions: AdapterGenerationOptions {
 }
 
 private extension AnthropicGenerationOptions {
-  static func thinkingBudgetTokens(
-    from thinking: MessageParameter.Thinking,
-  ) -> Int? {
-    guard let data = try? JSONEncoder().encode(thinking),
-          let object = try? JSONSerialization.jsonObject(with: data),
-          let dictionary = object as? [String: Any],
-          let budgetTokens = dictionary["budget_tokens"] as? Int else {
-      return nil
-    }
-
-    return budgetTokens
-  }
-
   static func toolChoiceType(
     from toolChoice: MessageParameter.ToolChoice,
   ) -> String? {

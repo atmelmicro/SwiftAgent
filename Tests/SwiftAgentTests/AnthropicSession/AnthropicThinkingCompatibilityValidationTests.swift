@@ -14,17 +14,17 @@ private struct SchemaWithStructuredOutput {
 @Suite("Anthropic - Thinking - Compatibility Validation")
 struct AnthropicThinkingCompatibilityValidationTests {
   private let session: AnthropicSession<NoSchema>
-  private let mockHTTPClient: ReplayHTTPClient<MessageParameter>
+  private let mockHTTPClient: ReplayHTTPClient<AnthropicMessageRequest>
 
   private let structuredSession: AnthropicSession<SchemaWithStructuredOutput>
-  private let structuredHTTPClient: ReplayHTTPClient<MessageParameter>
+  private let structuredHTTPClient: ReplayHTTPClient<AnthropicMessageRequest>
 
   init() async {
-    mockHTTPClient = ReplayHTTPClient<MessageParameter>(recordedResponses: [])
+    mockHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(recordedResponses: [])
     let configuration = AnthropicConfiguration(httpClient: mockHTTPClient)
     session = AnthropicSession(schema: NoSchema(), instructions: "", configuration: configuration)
 
-    structuredHTTPClient = ReplayHTTPClient<MessageParameter>(recordedResponses: [])
+    structuredHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(recordedResponses: [])
     let structuredConfiguration = AnthropicConfiguration(httpClient: structuredHTTPClient)
     structuredSession = AnthropicSession(
       schema: SchemaWithStructuredOutput(),

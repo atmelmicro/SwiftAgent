@@ -425,6 +425,15 @@ let response = try await session.respond(
 print(response.content)
 ```
 
+You can also explicitly disable Anthropic thinking for a turn:
+
+```swift
+let options = AnthropicGenerationOptions(
+  maxOutputTokens: 1000,
+  thinking: .disabled,
+)
+```
+
 ## Session Schema
 
 Raw transcripts expose every event as `GeneratedContent`, which is flexible but awkward when you want to build UI or assertions.

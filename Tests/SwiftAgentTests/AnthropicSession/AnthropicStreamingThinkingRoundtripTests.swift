@@ -10,10 +10,10 @@ import Testing
 @Suite("Anthropic - Streaming - Thinking")
 struct AnthropicStreamingThinkingRoundtripTests {
   private let session: AnthropicSession<NoSchema>
-  private let mockHTTPClient: ReplayHTTPClient<MessageParameter>
+  private let mockHTTPClient: ReplayHTTPClient<AnthropicMessageRequest>
 
   init() async {
-    mockHTTPClient = ReplayHTTPClient<MessageParameter>(
+    mockHTTPClient = ReplayHTTPClient<AnthropicMessageRequest>(
       recordedResponses: [
         .init(body: response1),
         .init(body: response2),

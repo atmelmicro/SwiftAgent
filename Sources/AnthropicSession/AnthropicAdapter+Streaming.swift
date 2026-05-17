@@ -128,7 +128,7 @@ extension AnthropicAdapter {
           case MessageStreamResponse.StreamEvent.messageStart.rawValue:
             try handleMessageStart(
               decoded.payload,
-              includeThinking: options.thinking != nil,
+              includeThinking: options.thinking?.type == .enabled,
               structuredOutputTypeName: structuredOutputTypeName,
               structuredToolName: structuredToolName,
               messageState: &messageState,
